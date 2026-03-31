@@ -1,0 +1,25 @@
+# Python stuff
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.DS_Store
+
+# Latex stuff
+build/
+*.aux
+*.bbl
+*.blg
+*.fdb_latemk
+*.fls
+*.log
+*.gz
+%OUTDIR%/
+
+# Data directories
+thoraxCT/
+
+# Raw data
+*.raw
+*.mat
+
