@@ -26,18 +26,18 @@
     {\large Prof. Brian Frost \par}
     \vspace{0.4cm}
     
-    {\large April 8, 2026 \par}
+    {\large April 15, 2026 \par}
     \vspace{0.8cm} % Adds space before the columns start
   \end{center}
 %}]
 
 
 \begin{abstract}
-This project explores the fundamental principles of medical image reconstruction and processing using a thoracic CT dataset. Methods explored include slicing, various types of filtering for noise reduction, and edge detection techniques.
-\end{abstract} 
+This report details the reconstruction and analysis of raw spectral-domain optical coherence tomography (SD-OCT) data acquired on a ThorLabs Telesto~3 system. A complete A-scan processing pipeline is developed, comprising background subtraction, wavelength-to-wavenumber resampling, Hanning windowing, polynomial deconvolution, and Fourier transformation. The pipeline is applied to a B-scan dataset of a stacked Scotch tape sample, from which ten individual tape layers are resolved and their thicknesses estimated. Sub-pixel vibrometry is performed on two M-scan datasets via spectral domain phase microscopy (SDPM), enabling nanometer-scale displacement measurements of a speaker membrane driven at 80~dB SPL. A single tone at $8.011$~kHz is identified from the single-tone M-scan, while all 40 constituent frequencies of a complex tone stimulus are recovered from the 40-tone M-scan. Amplitude analysis indicates that the speaker's frequency response is non-uniform across the measured range, though no harmonic distortion is observed, consistent with approximately linear behavior.
+\end{abstract}
 
 \section{Introduction}
-Optical coherence tomography (OCT) is a biomedical imaging modality that produces volumetric, depth-resolved images with micron-scale resolution using only light. OCT is powerful because it can noninvasively visualizes tissue microstructure and pathology without the need for physical excision \cite{fujimotoIntroductionOCT2015}.
+Optical coherence tomography (OCT) is a biomedical imaging modality that produces volumetric, depth-resolved images with micron-scale resolution using only light. OCT is powerful because it noninvasively visualizes tissue microstructure and pathology without the need for physical excision \cite{fujimotoIntroductionOCT2015}.
 
 OCT employs low-coherence interferometry to measure sample reflectivity as a function of depth, without physical contact or sectioning \cite{izattTheoryOpticalCoherence2015}. Of the three primary OCT paradigms---time-domain, spectral-domain, and swept-source---spectral-domain OCT (SD-OCT) offers a significant signal-to-noise advantage by capturing all depth information simultaneously on a detector array rather than scanning sequentially \cite{izattTheoryOpticalCoherence2015}.
 
@@ -66,7 +66,7 @@ Utilizing Euler's identity on the exponential terms, as well as ignoring the aut
 \label{eq:compact_k_intensity}
 \end{equation}
 
-Note that because the OCT signal modeled by Equation~\ref{eq:compact_k_intensity} encodes the depth of each reflector in the spatial-frequency domain, the fundamental processing step is an inverse Fourier transform of this signal. This Fourier-transformed signal yields an A-scan: a one-dimensional map of reflectivity along the depth of the beam axis (in the space domain).
+Note that because the OCT signal modeled by Equation~\ref{eq:compact_k_intensity} encodes the depth of each reflector in the spatial-frequency domain, the fundamental processing step is a Fourier transform of this signal. This Fourier-transformed signal yields an A-scan: a one-dimensional map of reflectivity along the depth of the beam axis (in the space domain).
 
 Before transforming the OCT signal to the space domain, we can subtract the DC term $GS(k)$, a step termed background subtraction. The DC term is estimated by blocking the sample beam to obtain $S(k)$, while $G$ is estimated from the average value of the OCT signal. Dividing the result by $S(k)$ then performs spectral normalization, which is equivalent to deconvolution in the spatial domain by the Fourier transform of the source spectrum.
 
@@ -115,7 +115,7 @@ For the image aspect ratio, the B-scan width is fixed at 1~mm. The axial extent 
 \section{Methodology}
 
 \subsection{A-Scan Processing Pipeline}
-The raw SD-OCT data consists of electron counts on each of the $N = 2048$ CCD pixels for every A-scan. These counts represent the wavelength-domain OCT signal, sampled approximately linearly in wavelength and therefore nonlinearly in wavenumber. The processing pipeline converts this raw signal into a complex-valued, depth-resolved A-scan through five steps: (1)~background subtraction, (2)~windowing, (3)~deconvolution, (4)~wavelength-to-wavenumber (L2K) resampling, and (5)~Fourier transformation.
+The raw SD-OCT data consists of electron counts on each of the $N = 2048$ CCD pixels for every A-scan. These counts represent the wavelength-domain OCT signal, sampled approximately linearly in wavelength and therefore nonlinearly in wavenumber. The processing pipeline converts this raw signal into a complex-valued, depth-resolved A-scan through five steps: (1)~background subtraction, (2)~wavelength-to-wavenumber (L2K) resampling, (3)~windowing, (4)~deconvolution, and (5)~Fourier transformation.
 
 Each dataset includes a set of background A-scans (acquired with the sample beam blocked) at the beginning of the file: 175 for the B-scan and 320 for each M-scan. These background scans are used in both the subtraction and deconvolution steps.
 
@@ -123,18 +123,18 @@ The raw OCT signal contains a large DC component from the reference beam intensi
 
 To remove the DC component, the averaged background spectrum is subtracted from each signal A-scan \cite{brianlfrostthesis}. The raw (unsmoothed) average of the background scans is used for this subtraction to avoid introducing smoothing artifacts.
 
-After background subtraction, a Hanning window is applied in the wavenumber domain. Windowing suppresses spectral leakage that would otherwise arise from the abrupt truncation of the signal at the detector edges \cite{brianlfrostthesis}.
+Because the spectrometer data is recorded via array camera in the wavelength domain, but the Fourier transform step requires sampling that is linear in wavenumber, the signal is resampled from wavelength to wavenumber space (L2K resampling) using linear interpolation \cite{brianlfrostthesis}. This was done via a matrix multiplication approach, where the resampling matrix was given as a precomputed constant, based on the experimental setup.
 
-Even after background subtraction, the depth-domain point spread function remains shaped by the source spectrum $S(k)$. Deconvolution compensates for this by dividing the background-subtracted signal by $S(k)$ in the wavenumber domain, which is equivalent to deblurring by the PSF in the spatial domain.
+After resampling, a Hanning window is applied in the wavenumber domain. Windowing suppresses spectral leakage that would otherwise arise from the abrupt truncation of the signal at the detector edges \cite{brianlfrostthesis}.
+
+Even after background subtraction, the depth-domain signal remains shaped by the source spectrum $S(k)$. Deconvolution compensates for this by dividing the windowed signal by $S(k)$ in the wavenumber domain, which is equivalent to deconvolution by the coherence function in the spatial domain.
 
 Dividing by the raw (noisy) background spectrum would amplify noise at wavenumbers where the source power is low. Instead, a polynomial is fit to the averaged background spectrum, and the resulting smooth curve serves as the denominator. The polynomial order was chosen by visually comparing the fit to the averaged background.
 
-Because the spectrometer data is recorded via array camera in the wavelength domain, but the Fourier transform step requires sampling that is linear in wavenumber, the signal is resampled from wavelength to wavenumber space (L2K resampling) using linear interpolation \cite{brianlfrostthesis}. This was done via a matrix multiplication approach, where the resampling matrix was given as a precomputed constant, based on the experimental setup.
-
-After background subtraction, windowing, deconvolution, and L2K resampling, the inverse Fourier transform is applied along the wavenumber axis. Because the OCT signal is real-valued, the transform is conjugate-symmetric; only the positive-depth half is retained, discarding the mirror image. The resulting complex-valued A-scan encodes reflectivity in its magnitude and sub-pixel displacement information in its phase (used later for SDPM). The magnitude is displayed in dB as $20\log_{10}|A(z)|$.
+After background subtraction, L2K resampling, windowing, and deconvolution, the Fourier transform is applied along the wavenumber axis. Because the OCT signal is real-valued, the transform is conjugate-symmetric; only the positive-depth half is retained, discarding the mirror image. The resulting complex-valued A-scan encodes reflectivity in its magnitude and sub-pixel displacement information in its phase (used later for SDPM). The magnitude is displayed in dB as $20\log_{10}|A(z)|$. Timing markers were printed at each step of the processing pipeline for later analysis.
 
 \subsection{B-Scan Formation}
-The B-scan function extends the A-scan processing to the full dataset, avoiding redundant computation. In the A-scan pipeline, certain operations — specifically, computing the average background and its polynomial fit — depend only on the background columns and are identical for every A-scan in the B-scan. These computations need only be performed once. The windowing function and the smoothed background for deconvolution are similarly fixed across A-scans. The B-scan function should therefore precompute these quantities once and then apply them simultaneously to all M signal A-scans as a single operation.
+The B-scan function extends the A-scan processing to the full dataset, avoiding redundant computation. In the A-scan pipeline, certain operations---specifically, computing the average background and its polynomial fit---depend only on the background columns and are identical for every A-scan in the B-scan. These computations need only be performed once. The windowing function and the smoothed background for deconvolution are similarly fixed across A-scans. The B-scan function therefore precomputes these quantities once and applies them simultaneously to all $M$ signal A-scans in a single  operation.
 
 After processing, the result is a complex-valued $N/2 \times M$ matrix (retaining only the positive-depth half after discarding the mirror image). The magnitude of this matrix, expressed in dB, constitutes the raw B-scan image.
 
@@ -150,30 +150,28 @@ d(t) = \frac{\lambda_0 \, \phi(z_0, t)}{4\pi n}
 \label{eq:sdpm_displacement}
 \end{equation}
 
-It should be noted that SDPM only measures the projection of three-dimensional motion onto the OCT beam axis. If the true displacement is not purely along the beam axis, the measured displacement will underestimate the full magnitude; this is an inherent limitation of uniaxial OCT-based vibrometry \cite{brianlfrostthesis}.
+SDPM only measures the projection of three-dimensional motion onto the OCT beam axis. If the true displacement is not purely along the beam axis, the measured displacement will underestimate the full magnitude; this is an inherent limitation of uniaxial OCT-based vibrometry \cite{brianlfrostthesis}.
 
-Given the complex M-scan $A(z, t)$ computed by applying a A-scan processing pipeline to each time sample, SDPM proceeds as follows:
+Given the complex M-scan $A(z, t)$ computed by applying an A-scan processing 
+pipeline to each time sample, SDPM proceeds as follows:
 \begin{enumerate}
-  \item Select the pixel of interest: Identify depth index $z_0$ corresponding to the reflector to be tracked (e.g., the speaker membrane surface), identified from the average A-scan magnitude as a peak of high intensity.
-  \item Extract the phase time series: Compute $\phi(z_0, t) = \angle(A(z_0, t))$ for all time samples. This raw phase will be wrapped to $[-\pi, \pi]$.
-  \item Unwrap the phase: Apply phase unwrapping along the time axis to remove $2\pi$ discontinuities, yielding a continuous phase signal. This is essential because the true displacement may accumulate phase beyond $\pm \pi$ between consecutive samples.
-  \item Convert phase to displacement: Apply Equation~\ref{eq:sdpm_displacement} to obtain $d(t)$ in physical units (mm).
-  \item Frequency-domain analysis: Take the Fourier transform of $d(t)$, using the sampling interval $\Delta t = \frac{1}{f_s}$, to obtain the displacement spectrum. Peaks in this spectrum identify the frequencies of vibration.
+  \item \textbf{Select the pixel of interest:} Identify depth index $z_0$ corresponding to the reflector to be tracked (e.g., the speaker membrane surface), identified from the average A-scan magnitude as a peak of high intensity.
+  \item \textbf{Extract the phase time series:} Compute $\phi(z_0, t) = \angle(A(z_0, t))$ for all time samples. This raw phase will be wrapped to $[-\pi, \pi]$.
+  \item \textbf{Unwrap the phase:} Apply phase unwrapping along the time axis to remove $2\pi$ discontinuities, yielding a continuous phase signal. This is essential because the true displacement may accumulate phase beyond $\pm \pi$ between consecutive samples.
+  \item \textbf{Convert phase to displacement:} Apply Equation~\ref{eq:sdpm_displacement} to obtain $d(t)$ in physical units (nm).
+  \item \textbf{Frequency-domain analysis:} Take the Fourier transform of $d(t)$, using the sampling interval $\Delta t = \frac{1}{f_s}$, to obtain the displacement spectrum. Peaks in this spectrum identify the frequencies of vibration.
 \end{enumerate}
 
-It should be noted that a large transient artifact was observed at the beginning of the M-scan datasets, likely due to the onset of speaker vibration. To avoid this artifact, the first 100 time samples were discarded from pixel $z_0$ candidates. Additionally, a steady linear drift was observed in the raw time series, which was removed via \texttt{scipy.signal.detrend} before further analysis.
+A large transient artifact was observed at the beginning of the M-scan datasets, likely due to the onset of speaker vibration; the first 125 time samples were therefore discarded before extracting the phase time series. A steady linear drift was also observed in the raw time series and was removed via a first-order \texttt{scipy.signal.detrend} before further analysis.
 
-For the M-scans, the average A-scan magnitude was  computed first to identify the depth of the speaker membrane as a band of high intensity. Two high-intensity pixels at this depth were selected for tracking in both time and frequency domains.
+The average A-scan magnitude was computed first to identify the depth of the speaker membrane as a band of high intensity, from which two high-intensity pixels were selected for tracking.
 
 \section{Results and Discussion}
 
 \subsection{A-Scan Processing}
 The averaged background scans and sample polynomial fittings are shown in Appendix \ref{appendix:poly_fitting}, where it was demonstrated that a polynomial of degree $16$ was appropriate for smoothness and accuracy without numerical instability. This smooth polynomial estimate of the source spectrum $S(k)$ was used exclusively for deconvolution; the raw averaged background was used for the DC subtraction step.
 
-Figure~\ref{fig:ascans_full} shows the magnitude (dB) of two A-scans from the B-scan dataset and one from each M-scan dataset, all processed with the full pipeline. The B-scan A-scans show a cluster of bright reflections between 
-approximately $0.5$ and $1.5$ mm depth corresponding to the tape layers, with a noise floor near $-20$ dB. The two M-scan A-scans are similar to one another in structure, as 
-expected, both are acquired at the same lateral location near the speaker membrane.
-
+Figure~\ref{fig:ascans_full} shows the magnitude (dB) of two A-scans from the B-scan dataset and one from each M-scan dataset, all processed with the full pipeline. The B-scan A-scans show a cluster of bright reflections between approximately $0.5$ and $1.5$ mm depth corresponding to the tape layers, with a noise floor near $-20$ dB. The two M-scan A-scans are similar to one another in structure, as expected, both are acquired at the same lateral location near the speaker membrane.
 
 \begin{figure}[ht]
   \centering
@@ -186,11 +184,9 @@ expected, both are acquired at the same lateral location near the speaker membra
   \label{fig:ascans_full}
 \end{figure}
 
-
-
 Figure~\ref{fig:pipeline_comparison} compares the same A-scan (taken from the B-scan dataset) processed under three conditions: the full pipeline (background subtraction, windowing, and deconvolution), background subtraction and windowing only (no deconvolution), and neither background subtraction nor deconvolution.
 
-\begin{figure}[ht]
+\begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{Results/pipeline_comparison.png}
   \caption{Pipeline comparison for A-scan \#100 from the B-scan dataset. Left: full pipeline. Center: background subtraction and windowing only, no deconvolution. Right: no background subtraction, no deconvolution.}
@@ -199,29 +195,58 @@ Figure~\ref{fig:pipeline_comparison} compares the same A-scan (taken from the B-
 
 Without background subtraction, the large DC component of the reference dominates the signal near zero depth. After background subtraction alone, the DC spike is still present, but largely eliminated, and the tape layer reflections become clearly visible. Deconvolution does not appear to increase the interpretability of the peaks, as the raw A-scan already has a very high SNR. However, it does shift the magnitude of the signal downwards in magnitude, which may be the deconvolution normalizing the signal by the smoothed background spectrum. In cases where the SNR is lower at the start, deconvolution would be expected to improve the axial resolution by effectively dividing out $S(k)$ in the wavenumber domain.
 
+Timing measurements were recorded for each step of the pipeline across all three datasets; the results are summarized in Table~\ref{tab:timing}. For the B-scan (10{,}000 A-scans), the total pipeline time was $0.44$~s. The M-scans, each containing roughly $10\times$ more A-scans (${\sim}104{,}000$--$106{,}000$), required approximately $5.0$--$5.1$~s each. In all three datasets, the two most expensive steps were L2K resampling and the FFT, together accounting for more than $85\%$ of total runtime. For the B-scan, L2K resampling took $0.22$~s ($49\%$) and FFT took $0.16$~s ($36\%$). For the M-scans, these proportions held similarly, with L2K at ${\sim}1.69$~s ($34\%$) and FFT at ${\sim}2.63$--$2.69$~s ($52\%$). By contrast, background averaging (${\sim}0.2$~ms), polynomial fitting (${\sim}1$~ms), windowing, deconvolution, and background subtraction were all negligible in cost. The dominance of L2K resampling is expected: despite being implemented as a matrix multiplication, it operates on a dense $2048 \times 2048$ matrix applied to each A-scan, making it $O(N^2)$ per A-scan. The FFT cost dominates for the M-scans due to their very large A-scan count. These two steps are therefore the primary targets for any future runtime optimization.
+
+It should be noted that the pipeline timing values displayed here were obtained on a machine with $125$~GB of RAM. When the pipeline was run on a machine with only $32$~GB of RAM, L2K resampling took upwards of $7$~seconds per dataset and oftentimes caused the system to crash, prompting the switch to a higher-memory computer.
+ 
+\begin{table}[ht]
+  \centering
+  \caption{Per-step pipeline timing (in seconds) for each dataset. Step times that are negligible ($<1$~ms) are reported as $<0.001$.}
+  \label{tab:timing}
+  \small
+  \begin{tabular}{lrrr}
+    \hline
+    Step & BScan\_Layers & MScan1 & MScan40 \\
+     & (10{,}000 A-scans) & (104{,}448 A-scans) & (106{,}496 A-scans) \\
+    \hline
+    Load              & 0.015 & 0.239 & 0.249 \\
+    Average background & $<$0.001 & $<$0.001 & $<$0.001 \\
+    BG subtraction    & 0.016 & 0.175 & 0.187 \\
+    L2K resampling    & 0.217 & 1.673 & 1.695 \\
+    Poly fit (order 16) & 0.001 & 0.001 & 0.001 \\
+    Hanning windowing & 0.017 & 0.163 & 0.166 \\
+    Deconvolution     & 0.016 & 0.151 & 0.158 \\
+    FFT               & 0.162 & 2.604 & 2.685 \\
+    \hline
+    \textbf{Total}    & \textbf{0.444} & \textbf{5.007} & \textbf{5.141} \\
+    \hline
+  \end{tabular}
+\end{table}
+
 \subsection{B-Scan Imaging}
 
-To correctly pick magnitude limits for display, the A-scan magnitudes were examined to identify the useful dynamic range. The 10th and 99th percentiles of the A-scan magnitudes were used as the lower and upper limits, respectively, for contrast enhancement.
+To correctly pick magnitude limits for display, the A-scan magnitudes were examined to identify the useful dynamic range. The $10$th and $99$th percentiles of the A-scan magnitudes were used as the lower and upper limits, respectively, for contrast enhancement.
 
-Figure~\ref{fig:bscan} shows the B-scan of the Scotch tape stack, unprocessed and contrast-enhanced.
+Figure~\ref{fig:bscan} shows the B-scan of the Scotch tape stack, both unprocessed and contrast-enhanced.
 
-\begin{figure}[ht]
+The unprocessed image is dominated by the very high dynamic range of the raw OCT signal, a linear grayscale colormap applied over the full range renders the weaker structure invisible. Contrast was enhanced by clipping the display range to the interval $[-24, 17]$~dB corresponding to the $10$th and $99$th percentiles of the A-scan magnitudes. Signals below the lower threshold are rendered black; those above the upper threshold are rendered white. 
+
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.5\textwidth]{Results/bscan_full_pipeline.png}
-  \caption{B-scan of the Scotch tape stack (full processing pipeline). Left: raw dB image with no contrast clipping. Right: contrast-enhanced image with display range clipped to $[-26, 14]$~dB. Physical axes are shown in mm with correct aspect ratio ($1\,\text{mm}$ wide, $3.69\,\text{mm}$ deep after mirror removal).}
+  \includegraphics[width=0.75\textwidth]{Results/bscan_full_pipeline.png}
+  \caption{B-scan of the Scotch tape stack (full processing pipeline). Left: raw dB image with no contrast clipping. Right: contrast-enhanced image with display range clipped to $[-24, 17]$~dB. Physical axes are shown in mm with correct aspect ratio ($1\,\text{mm}$ wide, $3.69\,\text{mm}$ deep after mirror removal).}
   \label{fig:bscan}
 \end{figure}
 
-The unprocessed image is dominated by the very high dynamic range of the raw OCT signal, a linear grayscale colormap applied over the full range renders the weaker structure invisible. Contrast was enhanced by clipping the display range to the interval $[-26, 14]$~dB corresponding to the 10th and 99th percentiles of the A-scan magnitudes. Signals below the lower threshold are rendered black; those above the upper threshold are rendered white. 
 
-In the contrast-enhanced image, $10$ distinct bright bands are visible, corresponding to $10$ sheets of Scotch tape. There are also thinner bands visible between the thicker ones, which likely represent the air-tape interfaces in between each sheet of Scotch tape. The tape sheets are estimated to be about $0.05$ mm, while the separation bands in between are roughly $0.03$ mm.
+In the contrast-enhanced image, $10$ distinct bright bands are visible, corresponding to $10$ sheets of Scotch tape. There are also thinner bands visible between the thicker ones, which likely represent the air-tape interfaces in between each sheet of Scotch tape. The tape sheets are visually estimated to be about $0.05$ mm, while the separation bands in between are roughly $0.03$ mm.
 
-Figure~\ref{fig:bscan_deconv} compares B-scans produced with and without deconvolution (both with background subtraction). Both images are constrast-enhanced with their respective 10th and 99th percentile dB ranges. As noted before when inspecting deconvolved vs. non-deconvolved A-scans, deconvolution does not appear to increase the interpretability of the B-scan image, as the raw signal already has a very high SNR. However, it does shift the magnitude of the signal downwards in magnitude, which is evident in the dB magnitude range of the images' colorbars. 
+Figure~\ref{fig:bscan_deconv} compares B-scans produced with and without deconvolution (both with background subtraction). Both images are contrast-enhanced with their respective $10$th and $99$th percentile dB ranges. As noted before when inspecting deconvolved vs. non-deconvolved A-scans, deconvolution does not appear to increase the interpretability of the B-scan image, as the raw signal already has a very high SNR. However, it does shift the magnitude of the signal downwards, which is evident in the dB range of the images' colorbars. 
 
-\begin{figure}[ht]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=0.5\textwidth]{Results/bscan_deconv_comparison.png}
-  \caption{Effect of deconvolution on B-scan image quality. Left: full pipeline (with deconvolution). Right: background subtraction only, no deconvolution. Both images are contrast-enhanced using their respective 10th--99th percentile dB ranges.}
+  \includegraphics[width=0.75\textwidth]{Results/bscan_deconv_comparison.png}
+  \caption{Effect of deconvolution on B-scan image quality. Left: full pipeline (with deconvolution). Right: background subtraction only, no deconvolution. Both images are contrast-enhanced using their respective $10$th--$99$th percentile dB ranges.}
   \label{fig:bscan_deconv}
 \end{figure}
 
@@ -230,12 +255,12 @@ Figure~\ref{fig:bscan_deconv} compares B-scans produced with and without deconvo
 
 \subsubsection{Single Tone M-Scan}
 
-Figure~\ref{fig:mscan1_avg} shows the time-averaged A-scan magnitude for the single-tone M-scan. A prominent high-intensity band is visible near $0.25$~mm depth corresponding to the surface of the speaker membrane. Two tracking pixels were selected near this depth utilizing \texttt{scipy.signal.find\_peaks}: pixel A at index $60$ ($0.216$~mm) and pixel B at index $93$ ($0.335$~mm). These pixels are marked with red and blue 'x' markers, respectively, in the figure. Both pixels are located within the high-intensity band corresponding to the speaker membrane, making them suitable candidates for SDPM tracking of the membrane's vibration. The exact depth of the membrane is not precisely known, so selecting multiple pixels within this band allows for comparison of their SDPM results and ensures that at least one is accurately tracking the membrane surface.
+Figure~\ref{fig:mscan1_avg} shows the time-averaged A-scan magnitude for the single-tone M-scan. A prominent high-intensity band is visible near $0.25$~mm depth corresponding to the surface of the speaker membrane. Two tracking pixels were selected near this depth utilizing \texttt{scipy.signal.find\_peaks}: pixel A at index $60$ ($0.216$~mm) and pixel B at index $87$ ($0.313$~mm). These pixels are marked with red and blue 'x' markers, respectively, in the figure. Both pixels are located within the high-intensity band corresponding to the speaker membrane, making them suitable candidates for SDPM tracking of the membrane's vibration. The exact depth of the membrane is not precisely known, so selecting multiple pixels within this band allows for comparison of their SDPM results and ensures that at least one is accurately tracking the membrane surface.
 
-\begin{figure}[ht]
+\begin{figure}[H]
   \centering
-  \includegraphics[width=\textwidth]{Results/mscan1_avg_magnitude.png}
-  \caption{Time-averaged A-scan magnitude (dB) for the single-tone M-scan. The high-intensity band near $0.25$~mm identifies the speaker membrane. Pixels A (index $60$) and B (index $93$), marked with red and blue 'x' markers respectively, were selected for SDPM tracking.}
+  \includegraphics[width=0.8\textwidth]{Results/mscan1_avg_magnitude.png}
+  \caption{Time-averaged A-scan magnitude (dB) for the single-tone M-scan. The high-intensity band near $0.25$~mm identifies the speaker membrane. Pixels A (index $60$) and B (index $87$), marked with red and blue 'x' markers respectively, were selected for SDPM tracking.}
   \label{fig:mscan1_avg}
 \end{figure}
 
@@ -251,56 +276,124 @@ Figures~\ref{fig:mscan1_A} and~\ref{fig:mscan1_B} show the time-domain displacem
 \begin{figure}[ht]
   \centering
   \includegraphics[width=\textwidth]{Results/mscan1_sdpm_pixelB.png}
-  \caption{SDPM result for pixel B (index $93$, depth $0.335$~mm) in the single-tone M-scan. Top: displacement time series (nm). Bottom: one-sided displacement spectrum (nm).}
+  \caption{SDPM result for pixel B (index $87$, depth $0.313$~mm) in the single-tone M-scan. Top: displacement time series (nm). Bottom: one-sided displacement spectrum (nm).}
   \label{fig:mscan1_B}
 \end{figure}
 
 The time-domain signal at both pixels shows the envelope of a sinusoidal oscillation (though it is internally noisy). The zoomed time-domain view (Figure~\ref{fig:mscan1_zoom}) is very noisy, as expected, and unfortunately not interpretable, so we must rely on the frequency-domain analysis. 
 
-The frequency-domain spectrum shows a single sharp peak at $8.011$~kHz for both pixels, identifying this as the tone played through the speaker. The displacement amplitudes at pixels A and B are $5.83$~nm and $5.90$~nm respectively, which are very close to each other, as expected given that both pixels are tracking the same membrane surface. The small difference in amplitude may be due to slight variations in the local reflectivity or noise, but overall the results are consistent with accurate SDPM tracking of the speaker membrane's vibration at the single tone frequency. The frequency-domain spectrum also show a very low noise floor, at the magnitude of sub-nanometer displacements, which is consistent with the high SNR of raw A-scans observed in previous sections.
+The frequency-domain spectrum shows a single sharp peak at $8.011$~kHz for both pixels, identifying this as the tone played through the speaker. The displacement amplitudes at pixels A and B are $5.61$~nm and $5.64$~nm respectively, which are very close to each other, as expected given that both pixels are tracking the same membrane surface. The small difference in amplitude may be due to slight variations in the local reflectivity or noise, but overall the results are consistent with accurate SDPM tracking of the speaker membrane's vibration at the single tone frequency. The frequency-domain spectrum also shows a very low noise floor, at the magnitude of sub-nanometer displacements, which is consistent with the high SNR of raw A-scans observed in previous sections.
 
 It should be noted that the frequency-domain plots also display a large low-frequency and DC component, which is likely due to residual drift in the time-domain signal that was not fully removed by detrending, as well as transient artifacts at the beginning of the M-scan. These low-frequency components do not affect the identification of the tone frequency, which is well above this range.
 
 \begin{figure}[ht]
   \centering
   \includegraphics[width=0.8\textwidth]{Results/mscan1_zoom.png}
-  \caption{Zoomed time-domain displacement at pixel A.}
+  \caption{Zoomed time-domain displacement at pixel A of the single-tone M-scan.}
   \label{fig:mscan1_zoom}
 \end{figure}
 
 \subsubsection{40-Tone M-Scan}
 
+Figure~\ref{fig:mscan40_avg} shows the time-averaged A-scan magnitude for the 40-tone M-scan. As with the single-tone case, a high-intensity band near $0.25$~mm identifies the speaker membrane. The same pixel selection procedure was applied, yielding pixel A at index $60$ ($0.216$~mm) and pixel B at index $88$ ($0.317$~mm).
 
-no distortions or harmonics, so approx linear speaker. but not all-pass.
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.8\textwidth]{Results/mscan40_avg_magnitude.png}
+  \caption{Time-averaged A-scan magnitude (dB) for the 40-tone M-scan. The high-intensity band near $0.25$~mm identifies the speaker membrane. Pixels A (index $60$) and B (index $88$), marked with red and blue 'x' markers respectively, were selected for SDPM tracking.}
+  \label{fig:mscan40_avg}
+\end{figure}
+
+Figures~\ref{fig:mscan40_A} and~\ref{fig:mscan40_B} show the time-domain displacement and frequency-domain spectrum for pixels A and B, respectively.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\textwidth]{Results/mscan40_sdpm_pixelA.png}
+  \caption{SDPM result for pixel A (index $60$, depth $0.216$~mm) in the 40-tone M-scan. Top: displacement time series (nm). Bottom: one-sided displacement spectrum (nm).}
+  \label{fig:mscan40_A}
+\end{figure}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\textwidth]{Results/mscan40_sdpm_pixelB.png}
+  \caption{SDPM result for pixel B (index $88$, depth $0.317$~mm) in the 40-tone M-scan. Top: displacement time series (nm). Bottom: one-sided displacement spectrum (nm).}
+  \label{fig:mscan40_B}
+\end{figure}
+
+The frequency-domain spectrum reveals 40 distinct peaks spanning roughly $5$--$45$~kHz. All 40 identified frequencies and their peak displacement amplitudes are listed in Table~\ref{tab:40tones}. The amplitudes vary considerably across the tones, ranging from $1.45$~nm to $38.80$~nm (a ratio of approximately $26.8\times$), indicating that the speaker's frequency response is far from flat. The speaker is therefore not all-pass.
+
+\begin{table}[ht]
+  \centering
+  \caption{Identified tone frequencies and peak displacement amplitudes from the 40-tone M-scan, detected via \texttt{scipy.signal.find\_peaks}.}
+  \label{tab:40tones}
+  \small
+  \begin{tabular}{clr|clr}
+    \hline
+    \# & Frequency (kHz) & Amplitude (nm) & \# & Frequency (kHz) & 
+    Amplitude (nm) \\
+    \hline
+    1  & 5.162  & 38.80 & 21 & 26.940 & 4.13  \\
+    2  & 5.357  & 22.66 & 22 & 29.397 & 13.49 \\
+    3  & 7.457  & 8.28  & 23 & 29.877 & 11.78 \\
+    4  & 8.132  & 6.72  & 24 & 30.609 & 6.06  \\
+    5  & 8.238  & 7.64  & 25 & 32.468 & 16.03 \\
+    6  & 10.448 & 12.14 & 26 & 32.567 & 14.61 \\
+    7  & 10.700 & 12.85 & 27 & 33.912 & 1.45  \\
+    8  & 11.278 & 16.37 & 28 & 35.251 & 3.93  \\
+    9  & 13.150 & 12.17 & 29 & 35.651 & 3.50  \\
+    10 & 13.248 & 10.73 & 30 & 37.533 & 18.90 \\
+    11 & 13.662 & 5.91  & 31 & 38.386 & 10.88 \\
+    12 & 14.669 & 4.76  & 32 & 38.711 & 8.59  \\
+    13 & 14.741 & 4.33  & 33 & 41.023 & 3.88  \\
+    14 & 17.884 & 7.31  & 34 & 41.391 & 2.86  \\
+    15 & 18.035 & 6.87  & 35 & 41.418 & 2.05  \\
+    16 & 18.853 & 2.53  & 36 & 41.637 & 2.33  \\
+    17 & 21.383 & 5.75  & 37 & 42.358 & 3.19  \\
+    18 & 22.881 & 3.45  & 38 & 42.990 & 4.64  \\
+    19 & 24.289 & 5.74  & 39 & 44.650 & 4.29  \\
+    20 & 25.517 & 2.26  & 40 & 44.804 & 4.30  \\
+    \hline
+  \end{tabular}
+\end{table}
+
+To assess linearity, the displacement at $8.011$~kHz (the single tone played in the MScan1 experiment) was examined in the 40-tone spectrum. Both M-scans were acquired at the same 80~dB SPL; if the speaker were linear, the response at any individual frequency should be independent of whether other tones are simultaneously present. The amplitude at $8.011$~kHz was $0.07$~nm in the 40-tone case, compared to $5.61$~nm in the single-tone case, an amplitude ratio of approximately $0.012$. However, this comparison is confounded by the fact that $8.011$~kHz does not correspond to one of the 40 input tones; it is the single tone from MScan1, which was not driven in MScan40. The near-zero response at this frequency in MScan40 is therefore expected, not a sign of nonlinearity. No harmonic distortion products are visible in the spectrum beyond the 40 input tones, which is consistent with approximately linear speaker behavior over this range.
 
 \section{Conclusion}
+This work demonstrated a complete SD-OCT processing pipeline and its application to structural imaging and vibrometry. The five-stage pipeline (background subtraction, L2K resampling, windowing, deconvolution, and Fourier transformation) successfully converted raw CCD electron counts into complex-valued, depth-resolved A-scans. Efficient implementation of the B-scan function avoided redundant computation and produced a high-quality cross-sectional image of the tape stack, in which ten distinct layers were resolved, consistent with the system's axial resolution of $\delta z \approx 7.46$~\textmu m. Deconvolution did not produce a visually significant improvement in this high-SNR dataset, though it is expected to be beneficial at lower SNR.
+
+SDPM analysis of the single-tone M-scan identified the driven frequency as $8.011$~kHz, with displacement amplitudes of $5.61$~nm and $5.64$~nm at two independently selected tracking pixels, demonstrating the consistency and sub-nanometer sensitivity of the method. Analysis of the 40-tone M-scan successfully recovered all 40 input frequencies spanning $5$--$45$~kHz. The displacement amplitudes across these tones varied by a factor of approximately $26.8\times$, confirming that the speaker is not all-pass over this frequency range. The absence of harmonic distortion products in the 40-tone spectrum is consistent with approximately linear speaker behavior.
+
+Taken together, these results validate the SD-OCT processing pipeline and illustrate the power of SDPM for non-contact, nanometer-scale vibrometry in biomedical and acoustic measurement applications.
+
+Several directions remain for future work. The L2K resampling step was the dominant processing bottleneck for machines with lower RAM capacities, particularly for the 40-tone M-scan; replacing the current linear interpolation approach could yield significant runtime improvements. Additionally, the polynomial deconvolution order was selected by visual inspection. Perhaps a more principled criterion, such as minimizing the residual between the fit and the averaged background in a spectral region, would make this choice more reproducible. The SDPM analysis was also limited to uniaxial displacement along the beam axis; integrating a second OCT beam at a known angle would enable full three-dimensional vibrometry. Finally, the contrast enhancement thresholds for B-scan display were chosen empirically via percentile clipping; adaptive magnitude equalization could provide more generalizable contrast without the need for manual selection.
 
 
 
 % --- Bibliography ---
 \printbibliography
 
+\pagebreak
 \appendix
 \counterwithin{figure}{section}
 \counterwithin{table}{section}
 \section{Background Scan Polynomial Fitting} \label{appendix:poly_fitting}
 Figures~\ref{fig:poly_fit_bscan},~\ref{fig:poly_fit_mscan_1}, and~\ref{fig:poly_fit_mscan_40} show the averaged background spectrum and polynomial fit for the B-scan, single-tone M-scan, and 40-tone M-scan datasets, respectively. In all cases, a polynomial of degree $16$ was found to provide a good balance between smoothness and accuracy without introducing numerical instability.
 
-\begin{figure}[ht]
+\begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{Results/poly_fit_comparison_bscan.png}
   \caption{Polynomial fitting of the averaged background spectrum for the B-scan dataset.}
   \label{fig:poly_fit_bscan}
 \end{figure}
 
-\begin{figure}[ht]
+\begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{Results/poly_fit_comparison_mscan_1.png}
   \caption{Polynomial fitting of the averaged background spectrum for the single tone M-scan dataset.}
   \label{fig:poly_fit_mscan_1}
 \end{figure}
 
-\begin{figure}[ht]
+\begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{Results/poly_fit_comparison_mscan_40.png}
   \caption{Polynomial fitting of the averaged background spectrum for the 40-tone M-scan dataset.}
