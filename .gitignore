@@ -18,6 +18,7 @@ build/
 
 # Data directories
 thoraxCT/
+ds001499/
 
 # Raw data
 *.raw
